@@ -7,9 +7,9 @@ import {
   DuaCategoryResponse 
 } from '../types';
 
-const PRAYER_BASE_URL = 'https://api.myquran.com/v2/sholat/';
-const QURAN_BASE_URL = 'https://api.quran.gading.dev/';
-const DUA_BASE_URL = 'https://dua-api.vercel.app/api/';
+const PRAYER_BASE_URL = 'https://api.myquran.com/v2/sholat';
+const QURAN_BASE_URL = 'https://api.myquran.com/v2/quran';
+const DUA_BASE_URL = 'https://api.myquran.com/v2/doa';
 
 /**
  * Fetch cities list from the API
@@ -77,49 +77,21 @@ export const fetchPrayerTimes = async (
 /**
  * Fetch list of all Quran surahs
  */
-export const fetchQuranSurahs = async (): Promise<QuranSurahListResponse> => {
-  try {
-    const response = await fetch(`${QURAN_BASE_URL}/surah`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch Quran surahs');
-    }
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('Error fetching Quran surahs:', error);
-    throw error;
-  }
-};
-
-/**
- * Fetch a specific surah by number
- * @param surahNumber - The number of the surah (1-114)
- */
-export const fetchSurah = async (surahNumber: number): Promise<QuranSurahResponse> => {
-  try {
-    const response = await fetch(`${QURAN_BASE_URL}/surah/${surahNumber}`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch surah');
-    }
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('Error fetching surah:', error);
-    throw error;
-  }
-};
-
-/**
- * Fetch all dua categories
- */
 export const fetchDuaCategories = async (): Promise<DuaCategoryResponse> => {
   try {
-    const response = await fetch(`${DUA_BASE_URL}/categories`);
+    const response = await fetch(`${DUA_BASE_URL}/kategoridoa`);
     if (!response.ok) {
       throw new Error('Failed to fetch dua categories');
     }
     const data = await response.json();
-    return data;
+    return {
+      data: data.data.map((category: any) => ({
+        id: category.id_kategori,
+        name: category.nama_kategori,
+        description: category.keterangan || '',
+        image: category.image || ''
+      }))
+    };
   } catch (error) {
     console.error('Error fetching dua categories:', error);
     throw error;
@@ -132,14 +104,178 @@ export const fetchDuaCategories = async (): Promise<DuaCategoryResponse> => {
  */
 export const fetchDuasByCategory = async (categoryId: number): Promise<DuaResponse> => {
   try {
-    const response = await fetch(`${DUA_BASE_URL}/categories/${categoryId}`);
+    const response = await fetch(`${DUA_BASE_URL}/kategoridoa/${categoryId}`);
     if (!response.ok) {
       throw new Error('Failed to fetch duas');
     }
     const data = await response.json();
-    return data;
+    
+    return {
+      data: {
+        category: {
+          id: data.data.kategori.id_kategori,
+          name: data.data.kategori.nama_kategori,
+          description: data.data.kategori.keterangan || '',
+          image: data.data.kategori.image || ''
+        },
+        duas: data.data.doa.map((dua: any) => ({
+          id: dua.id_doa,
+          title: dua.judul,
+          arabic: dua.arab,
+          latin: dua.latin,
+          translation: dua.terjemahan,
+          notes: dua.catatan || '',
+          fawaid: dua.faedah || '',
+          source: dua.riwayat || ''
+        }))
+      }
+    };
   } catch (error) {
     console.error('Error fetching duas:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch Quran surahs list from the myquran API 
+ */
+export const fetchQuranSurahs = async (): Promise<QuranSurahListResponse> => {
+  try {
+    const response = await fetch(`${QURAN_BASE_URL}/surat`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch Quran surahs');
+    }
+    const data = await response.json();
+    
+    // Transform the response to match expected format
+    return {
+      code: 200,
+      status: 'OK',
+      message: 'Success',
+      data: data.data.map((surah: any) => ({
+        number: surah.nomor,
+        sequence: surah.nomor,
+        numberOfVerses: surah.jumlah_ayat,
+        name: {
+          short: surah.nama_latin,
+          long: surah.nama,
+          transliteration: {
+            en: surah.nama_latin,
+            id: surah.nama_latin
+          },
+          translation: {
+            en: surah.arti,
+            id: surah.arti
+          }
+        },
+        revelation: {
+          arab: surah.tempat_turun === 'mekah' ? 'مكة' : 'مدينة',
+          en: surah.tempat_turun === 'mekah' ? 'Meccan' : 'Medinan',
+          id: surah.tempat_turun === 'mekah' ? 'Makkiyyah' : 'Madaniyyah'
+        },
+        tafsir: {
+          id: surah.deskripsi || ''
+        }
+      }))
+    };
+  } catch (error) {
+    console.error('Error fetching Quran surahs:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch a specific surah by number from myquran API
+ * @param surahNumber - The number of the surah (1-114)
+ */
+export const fetchSurah = async (surahNumber: number): Promise<QuranSurahResponse> => {
+  try {
+    const response = await fetch(`${QURAN_BASE_URL}/surat/${surahNumber}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch surah');
+    }
+    const surahData = await response.json();
+    
+    // Fetch ayahs for this surah
+    const ayahsResponse = await fetch(`${QURAN_BASE_URL}/ayat/${surahNumber}`);
+    if (!ayahsResponse.ok) {
+      throw new Error('Failed to fetch surah verses');
+    }
+    const ayahsData = await ayahsResponse.json();
+    
+    // Transform the data to match the expected format
+    const surah = surahData.data;
+    const verses = ayahsData.data.ayat.map((ayah: any) => ({
+      number: {
+        inQuran: ayah.id,
+        inSurah: ayah.nomor
+      },
+      meta: {
+        juz: ayah.juz,
+        page: ayah.page || 0,
+        manzil: 0,
+        ruku: 0,
+        hizbQuarter: 0,
+        sajda: {
+          recommended: false,
+          obligatory: false
+        }
+      },
+      text: {
+        arab: ayah.arab,
+        transliteration: {
+          en: ayah.latin || ''
+        }
+      },
+      translation: {
+        en: ayah.terjemahan || '',
+        id: ayah.terjemahan || ''
+      },
+      audio: {
+        primary: ayah.audio || '',
+        secondary: []
+      },
+      tafsir: {
+        id: {
+          short: ayah.tafsir || '',
+          long: ''
+        }
+      }
+    }));
+    
+    return {
+      code: 200,
+      status: 'OK',
+      message: 'Success',
+      data: {
+        number: surah.nomor,
+        sequence: surah.nomor,
+        numberOfVerses: surah.jumlah_ayat,
+        name: {
+          short: surah.nama_latin,
+          long: surah.nama,
+          transliteration: {
+            en: surah.nama_latin,
+            id: surah.nama_latin
+          },
+          translation: {
+            en: surah.arti,
+            id: surah.arti
+          }
+        },
+        revelation: {
+          arab: surah.tempat_turun === 'mekah' ? 'مكة' : 'مدينة',
+          en: surah.tempat_turun === 'mekah' ? 'Meccan' : 'Medinan',
+          id: surah.tempat_turun === 'mekah' ? 'Makkiyyah' : 'Madaniyyah'
+        },
+        tafsir: {
+          id: surah.deskripsi || ''
+        },
+        verses: verses
+      }
+    };
+  } catch (error) {
+    console.error('Error fetching surah:', error);
     throw error;
   }
 };

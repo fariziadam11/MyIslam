@@ -156,3 +156,75 @@ export interface DuaResponse {
     duas: Dua[];
   };
 }
+
+export interface DuaCategory {
+  id: number;
+  name: string;
+  description: string;
+  image: string;
+}
+
+export interface Dua {
+  id: number;
+  title: string;
+  arabic: string;
+  latin: string;
+  translation: string;
+  notes?: string;
+  fawaid?: string;
+  source?: string;
+}
+
+export interface DuaCategoryResponse {
+  data: DuaCategory[];
+}
+
+export interface DuaResponse {
+  data: {
+    category: DuaCategory;
+    duas: Dua[];
+  };
+}
+
+// If you want a direct mapping with the myquran API structure
+export interface MyQuranDuaCategory {
+  id_kategori: number;
+  nama_kategori: string;
+  keterangan: string;
+  image: string;
+}
+
+export interface MyQuranDua {
+  id_doa: number;
+  judul: string;
+  arab: string;
+  latin: string;
+  terjemahan: string;
+  catatan?: string;
+  faedah?: string;
+  riwayat?: string;
+}
+
+// Quran API response types from myquran
+export interface MyQuranSurah {
+  nomor: number;
+  nama_latin: string;
+  nama: string;
+  jumlah_ayat: number;
+  tempat_turun: string;
+  arti: string;
+  deskripsi: string;
+}
+
+export interface MyQuranAyat {
+  id: number;
+  surah: number;
+  nomor: number;
+  arab: string;
+  latin: string;
+  terjemahan: string;
+  audio: string;
+  tafsir?: string;
+  juz: number;
+  page?: number;
+}
