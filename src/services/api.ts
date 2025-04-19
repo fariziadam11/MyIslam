@@ -1,10 +1,12 @@
-import { 
-  CitiesResponse, 
-  PrayerTimesResponse, 
-  QuranSurahListResponse, 
-  QuranSurahResponse,
-  DuaResponse,
-  DuaCategoryResponse 
+import {
+  CitiesResponse,
+  PrayerTimesResponse,
+  MyQuranAyat,
+  MyQuranSurah,
+  MyQuranDua,
+  MyQuranDuaCategory,
+  QuranSurahListResponse,
+  QuranSurahResponse
 } from '../types';
 
 const BASE_URL = 'https://api.myquran.com/v2';
@@ -12,30 +14,21 @@ const PRAYER_BASE_URL = `${BASE_URL}/sholat`;
 const QURAN_BASE_URL = `${BASE_URL}/quran`;
 const DUA_BASE_URL = `${BASE_URL}/doa`;
 
-/**
- * Fetch cities list from the API
- */
+const handleFetch = async (url: string, errorMessage: string) => {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(errorMessage);
+  return response.json();
+};
+
 export const fetchCities = async (): Promise<CitiesResponse> => {
   try {
-    const response = await fetch(`${PRAYER_BASE_URL}/kota/semua`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch cities');
-    }
-    const data = await response.json();
-    return data;
+    return await handleFetch(`${PRAYER_BASE_URL}/kota/semua`, 'Failed to fetch cities');
   } catch (error) {
-    console.error('Error fetching cities:', error);
+    console.error(error);
     throw error;
   }
 };
 
-/**
- * Fetch prayer times for a specific city and date
- * @param cityId - The ID of the city
- * @param year - The year (YYYY)
- * @param month - The month (MM)
- * @param date - The date (DD)
- */
 export const fetchPrayerTimes = async (
   cityId: string,
   year: string,
@@ -43,59 +36,40 @@ export const fetchPrayerTimes = async (
   date: string
 ): Promise<PrayerTimesResponse> => {
   try {
-    const response = await fetch(
-      `${PRAYER_BASE_URL}/jadwal/${cityId}/${year}/${month}/${date}`
+    const data = await handleFetch(
+      `${PRAYER_BASE_URL}/jadwal/${cityId}/${year}/${month}/${date}`,
+      'Failed to fetch prayer times'
     );
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch prayer times');
-    }
-    
-    const data = await response.json();
-    
-    // Validate the response data
-    if (!data.status || !data.data || !data.data.jadwal) {
-      throw new Error('Invalid prayer times data format');
-    }
-    
-    // Ensure all required prayer times exist
+
     const requiredTimes = ['imsak', 'subuh', 'dzuhur', 'ashar', 'maghrib', 'isya'];
     const jadwal = data.data.jadwal;
-    
+
     for (const time of requiredTimes) {
       if (!jadwal[time] || !/^\d{2}:\d{2}$/.test(jadwal[time])) {
         jadwal[time] = '--:--';
       }
     }
-    
+
     return data;
   } catch (error) {
-    console.error('Error fetching prayer times:', error);
+    console.error(error);
     throw error;
   }
 };
 
-/**
- * Fetch list of all Dua categories
- */
-export const fetchDuaCategories = async (): Promise<DuaCategoryResponse> => {
+export const fetchDuaCategories = async (): Promise<MyQuranDuaCategory> => {
   try {
-    const response = await fetch(`${DUA_BASE_URL}/kategoridoa`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch dua categories');
-    }
-    const data = await response.json();
-    
-    if (!data.data || !Array.isArray(data.data)) {
-      throw new Error('Invalid dua categories data format');
-    }
-    
+    const data = await handleFetch(`${DUA_BASE_URL}/kategoridoa`, 'Failed to fetch dua categories');
+
+    const categories = data?.data;
+    if (!Array.isArray(categories)) throw new Error('Invalid dua categories data format');
+
     return {
-      data: data.data.map((category: any) => ({
-        id: category.id_kategori,
-        name: category.nama_kategori,
-        description: category.keterangan || '',
-        image: category.image || ''
+      data: categories.map((category: any) => ({
+        id: category?.id_kategori ?? 0,
+        name: category?.nama_kategori ?? '',
+        description: category?.keterangan ?? '',
+        image: category?.image ?? ''
       }))
     };
   } catch (error) {
@@ -104,51 +78,45 @@ export const fetchDuaCategories = async (): Promise<DuaCategoryResponse> => {
   }
 };
 
-/**
- * Fetch duas by category
- * @param categoryId - The ID of the category
- */
-export const fetchDuasByCategory = async (categoryId: number): Promise<DuaResponse> => {
+
+export const fetchDuasByCategory = async (categoryId: number): Promise<MyQuranDua> => {
   try {
-    const response = await fetch(`${DUA_BASE_URL}/kategoridoa/${categoryId}`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch duas');
-    }
-    const data = await response.json();
-    
-    if (!data.data || !data.data.kategori || !data.data.doa) {
+    const data = await handleFetch(`${DUA_BASE_URL}/kategoridoa/${categoryId}`, 'Failed to fetch duas');
+
+    const categoryData = data?.data?.kategori;
+    const duasArray = data?.data?.doa;
+
+    if (!categoryData || !Array.isArray(duasArray)) {
       throw new Error('Invalid duas data format');
     }
-    
+
     return {
       data: {
         category: {
-          id: data.data.kategori.id_kategori,
-          name: data.data.kategori.nama_kategori,
-          description: data.data.kategori.keterangan || '',
-          image: data.data.kategori.image || ''
+          id: categoryData.id_kategori ?? 0,
+          name: categoryData.nama_kategori ?? '',
+          description: categoryData.keterangan ?? '',
+          image: categoryData.image ?? ''
         },
-        duas: data.data.doa.map((dua: any) => ({
-          id: dua.id_doa,
-          title: dua.judul,
-          arabic: dua.arab,
-          latin: dua.latin,
-          translation: dua.terjemahan,
-          notes: dua.catatan || '',
-          fawaid: dua.faedah || '',
-          source: dua.riwayat || ''
+        duas: duasArray.map((dua: any) => ({
+          id: dua?.id_doa ?? 0,
+          title: dua?.judul ?? '',
+          arabic: dua?.arab ?? '',
+          latin: dua?.latin ?? '',
+          translation: dua?.terjemahan ?? '',
+          notes: dua?.catatan ?? '',
+          fawaid: dua?.faedah ?? '',
+          source: dua?.riwayat ?? ''
         }))
       }
     };
   } catch (error) {
-    console.error('Error fetching duas:', error);
+    console.error('Error fetching duas by category:', error);
     throw error;
   }
 };
 
-/**
- * Fetch Quran surahs list from the myquran API 
- */
+
 export const fetchQuranSurahs = async (): Promise<QuranSurahListResponse> => {
   try {
     const response = await fetch(`${QURAN_BASE_URL}/surat`);
@@ -156,12 +124,11 @@ export const fetchQuranSurahs = async (): Promise<QuranSurahListResponse> => {
       throw new Error('Failed to fetch Quran surahs');
     }
     const data = await response.json();
-    
+
     if (!data.data || !Array.isArray(data.data)) {
       throw new Error('Invalid Quran surahs data format');
     }
-    
-    // Transform the response to match expected format
+
     return {
       code: 200,
       status: 'OK',
@@ -198,10 +165,7 @@ export const fetchQuranSurahs = async (): Promise<QuranSurahListResponse> => {
   }
 };
 
-/**
- * Fetch a specific surah by number from myquran API
- * @param surahNumber - The number of the surah (1-114)
- */
+
 export const fetchSurah = async (surahNumber: number): Promise<QuranSurahResponse> => {
   try {
     const response = await fetch(`${QURAN_BASE_URL}/surat/${surahNumber}`);
@@ -209,23 +173,22 @@ export const fetchSurah = async (surahNumber: number): Promise<QuranSurahRespons
       throw new Error('Failed to fetch surah');
     }
     const surahData = await response.json();
-    
+
     if (!surahData.data) {
       throw new Error('Invalid surah data format');
     }
-    
+
     // Fetch ayahs for this surah
     const ayahsResponse = await fetch(`${QURAN_BASE_URL}/ayat/${surahNumber}`);
     if (!ayahsResponse.ok) {
       throw new Error('Failed to fetch surah verses');
     }
     const ayahsData = await ayahsResponse.json();
-    
+
     if (!ayahsData.data || !ayahsData.data.ayat || !Array.isArray(ayahsData.data.ayat)) {
       throw new Error('Invalid surah verses data format');
     }
-    
-    // Transform the data to match the expected format
+
     const surah = surahData.data;
     const verses = ayahsData.data.ayat.map((ayah: any) => ({
       number: {
@@ -264,7 +227,7 @@ export const fetchSurah = async (surahNumber: number): Promise<QuranSurahRespons
         }
       }
     }));
-    
+
     return {
       code: 200,
       status: 'OK',

@@ -3,8 +3,6 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import CitySelector from './components/CitySelector';
 import PrayerTimesDisplay from './components/PrayerTimesDisplay';
-import QuranReader from './components/QuranReader';
-import DuaViewer from './components/DuaViewer';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { usePrayerTimes } from './hooks/usePrayerTimes';
 
@@ -51,12 +49,6 @@ function App() {
             />
           </>
         );
-      
-      case 'quran':
-        return <QuranReader />;
-        
-      case 'dua':
-        return <DuaViewer />;
         
       default:
         return null;
