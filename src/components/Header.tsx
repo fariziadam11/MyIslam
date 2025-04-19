@@ -11,8 +11,11 @@ const Header = () => {
             className="h-6 w-6"
           />
           <h1 className="text-xl font-bold text-gray-800 dark:text-white">
-            Jadwal Sholat
+            Muslim Companion
           </h1>
+          <span className="hidden md:inline-block text-sm text-gray-500 dark:text-gray-400">
+            | Jadwal Sholat, Al-Quran &amp; Doa
+          </span>
         </div>
         
         <ThemeToggle />
