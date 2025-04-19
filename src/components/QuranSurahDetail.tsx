@@ -12,7 +12,7 @@ const QuranSurahDetail = ({ surah, onBack, isLoading }: QuranSurahDetailProps) =
   const [showTafsir, setShowTafsir] = useState(false);
   const [playingAudio, setPlayingAudio] = useState<string | null>(null);
 
-  const handleAudioPlay = (audioUrl: string, verseNumber: number) => {
+  const handleAudioPlay = (audioUrl: string) => {
     if (playingAudio === audioUrl) {
       setPlayingAudio(null);
     } else {
@@ -25,6 +25,7 @@ const QuranSurahDetail = ({ surah, onBack, isLoading }: QuranSurahDetailProps) =
       });
     }
   };
+  
 
   if (isLoading) {
     return (
@@ -112,7 +113,7 @@ const QuranSurahDetail = ({ surah, onBack, isLoading }: QuranSurahDetailProps) =
               
               {verse.audio.primary && (
                 <button 
-                  onClick={() => handleAudioPlay(verse.audio.primary, verse.number.inSurah)}
+                onClick={() => handleAudioPlay(verse.audio.primary)}
                   className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300"
                 >
                   {playingAudio === verse.audio.primary ? (
