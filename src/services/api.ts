@@ -7,9 +7,10 @@ import {
   DuaCategoryResponse 
 } from '../types';
 
-const PRAYER_BASE_URL = 'https://api.myquran.com/v2/sholat';
-const QURAN_BASE_URL = 'https://api.myquran.com/v2/quran';
-const DUA_BASE_URL = 'https://api.myquran.com/v2/doa';
+const BASE_URL = 'https://api.myquran.com/v2';
+const PRAYER_BASE_URL = `${BASE_URL}/sholat`;
+const QURAN_BASE_URL = `${BASE_URL}/quran`;
+const DUA_BASE_URL = `${BASE_URL}/doa`;
 
 /**
  * Fetch cities list from the API
@@ -75,7 +76,7 @@ export const fetchPrayerTimes = async (
 };
 
 /**
- * Fetch list of all Quran surahs
+ * Fetch list of all Dua categories
  */
 export const fetchDuaCategories = async (): Promise<DuaCategoryResponse> => {
   try {
@@ -84,6 +85,11 @@ export const fetchDuaCategories = async (): Promise<DuaCategoryResponse> => {
       throw new Error('Failed to fetch dua categories');
     }
     const data = await response.json();
+    
+    if (!data.data || !Array.isArray(data.data)) {
+      throw new Error('Invalid dua categories data format');
+    }
+    
     return {
       data: data.data.map((category: any) => ({
         id: category.id_kategori,
@@ -109,6 +115,10 @@ export const fetchDuasByCategory = async (categoryId: number): Promise<DuaRespon
       throw new Error('Failed to fetch duas');
     }
     const data = await response.json();
+    
+    if (!data.data || !data.data.kategori || !data.data.doa) {
+      throw new Error('Invalid duas data format');
+    }
     
     return {
       data: {
@@ -146,6 +156,10 @@ export const fetchQuranSurahs = async (): Promise<QuranSurahListResponse> => {
       throw new Error('Failed to fetch Quran surahs');
     }
     const data = await response.json();
+    
+    if (!data.data || !Array.isArray(data.data)) {
+      throw new Error('Invalid Quran surahs data format');
+    }
     
     // Transform the response to match expected format
     return {
@@ -196,12 +210,20 @@ export const fetchSurah = async (surahNumber: number): Promise<QuranSurahRespons
     }
     const surahData = await response.json();
     
+    if (!surahData.data) {
+      throw new Error('Invalid surah data format');
+    }
+    
     // Fetch ayahs for this surah
     const ayahsResponse = await fetch(`${QURAN_BASE_URL}/ayat/${surahNumber}`);
     if (!ayahsResponse.ok) {
       throw new Error('Failed to fetch surah verses');
     }
     const ayahsData = await ayahsResponse.json();
+    
+    if (!ayahsData.data || !ayahsData.data.ayat || !Array.isArray(ayahsData.data.ayat)) {
+      throw new Error('Invalid surah verses data format');
+    }
     
     // Transform the data to match the expected format
     const surah = surahData.data;
