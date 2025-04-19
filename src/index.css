@@ -41,3 +41,100 @@
 .animate-gentle-fade-in {
   animation: gentle-fade-in 0.5s ease-out forwards;
 }
+
+/* src/index.css or src/styles/global.css - add or update as needed */
+
+/* Import Arabic font for Quran text */
+@import url('https://fonts.googleapis.com/css2?family=Scheherazade+New:wght@400;700&display=swap');
+
+/* Font for Arabic text */
+.font-arabic {
+  font-family: 'Scheherazade New', serif;
+  line-height: 1.8;
+}
+
+/* Animation for active prayer time */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Line clamp utility */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Audio player styles */
+.audio-player {
+  width: 100%;
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+/* Verse highlight on hover */
+.verse-container:hover {
+  background-color: rgba(16, 185, 129, 0.05);
+}
+
+/* Responsive font sizes for Arabic text */
+@media (max-width: 640px) {
+  .font-arabic {
+    font-size: 1.25rem; /* text-xl */
+  }
+}
+
+@media (min-width: 641px) {
+  .font-arabic {
+    font-size: 1.5rem; /* text-2xl */
+  }
+}
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #10b981;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #047857;
+}
+
+/* Dark mode scrollbar */
+.dark ::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #10b981;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #34d399;
+}
