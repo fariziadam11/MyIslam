@@ -1,10 +1,10 @@
 import {
   CitiesResponse,
   PrayerTimesResponse,
-  MyQuranAyat,
-  MyQuranSurah,
-  MyQuranDua,
+  DuaCategoryResponse,
+  DuasByCategoryResponse,
   MyQuranDuaCategory,
+  MyQuranDua,
   QuranSurahListResponse,
   QuranSurahResponse
 } from '../types';
@@ -59,17 +59,18 @@ export const fetchPrayerTimes = async (
 
 export const fetchDuaCategories = async (): Promise<MyQuranDuaCategory> => {
   try {
-    const data = await handleFetch(`${DUA_BASE_URL}/kategoridoa`, 'Failed to fetch dua categories');
+    const data = await handleFetch(`${DUA_BASE_URL}/kategoridoa`, 'Failed to fetch dua categories') as DuaCategoryResponse;
 
-    const categories = data?.data;
-    if (!Array.isArray(categories)) throw new Error('Invalid dua categories data format');
+    if (!data.status || !Array.isArray(data.data)) {
+      throw new Error('Invalid dua categories data format');
+    }
 
     return {
-      data: categories.map((category: any) => ({
-        id: category?.id_kategori ?? 0,
-        name: category?.nama_kategori ?? '',
-        description: category?.keterangan ?? '',
-        image: category?.image ?? ''
+      data: data.data.map(category => ({
+        id: category.id_kategori,
+        name: category.nama_kategori,
+        description: category.keterangan,
+        image: category.image
       }))
     };
   } catch (error) {
@@ -78,35 +79,37 @@ export const fetchDuaCategories = async (): Promise<MyQuranDuaCategory> => {
   }
 };
 
-
 export const fetchDuasByCategory = async (categoryId: number): Promise<MyQuranDua> => {
   try {
-    const data = await handleFetch(`${DUA_BASE_URL}/kategoridoa/${categoryId}`, 'Failed to fetch duas');
+    const data = await handleFetch(
+      `${DUA_BASE_URL}/kategoridoa/${categoryId}`, 
+      'Failed to fetch duas'
+    ) as DuasByCategoryResponse;
 
-    const categoryData = data?.data?.kategori;
-    const duasArray = data?.data?.doa;
-
-    if (!categoryData || !Array.isArray(duasArray)) {
+    if (!data.status || !data.data || !data.data.kategori || !Array.isArray(data.data.doa)) {
       throw new Error('Invalid duas data format');
     }
+
+    const categoryData = data.data.kategori;
+    const duasArray = data.data.doa;
 
     return {
       data: {
         category: {
-          id: categoryData.id_kategori ?? 0,
-          name: categoryData.nama_kategori ?? '',
-          description: categoryData.keterangan ?? '',
-          image: categoryData.image ?? ''
+          id: categoryData.id_kategori,
+          name: categoryData.nama_kategori,
+          description: categoryData.keterangan,
+          image: categoryData.image
         },
-        duas: duasArray.map((dua: any) => ({
-          id: dua?.id_doa ?? 0,
-          title: dua?.judul ?? '',
-          arabic: dua?.arab ?? '',
-          latin: dua?.latin ?? '',
-          translation: dua?.terjemahan ?? '',
-          notes: dua?.catatan ?? '',
-          fawaid: dua?.faedah ?? '',
-          source: dua?.riwayat ?? ''
+        duas: duasArray.map(dua => ({
+          id: dua.id_doa,
+          title: dua.judul,
+          arabic: dua.arab,
+          latin: dua.latin,
+          translation: dua.terjemahan,
+          notes: dua.catatan,
+          fawaid: dua.faedah,
+          source: dua.riwayat
         }))
       }
     };
@@ -115,7 +118,6 @@ export const fetchDuasByCategory = async (categoryId: number): Promise<MyQuranDu
     throw error;
   }
 };
-
 
 export const fetchQuranSurahs = async (): Promise<QuranSurahListResponse> => {
   try {
@@ -164,7 +166,6 @@ export const fetchQuranSurahs = async (): Promise<QuranSurahListResponse> => {
     throw error;
   }
 };
-
 
 export const fetchSurah = async (surahNumber: number): Promise<QuranSurahResponse> => {
   try {
