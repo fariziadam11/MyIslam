@@ -32,9 +32,14 @@ const QuranSection = () => {
     try {
       setLoading(true);
       const response = await fetchSurah(surahNumber);
+      
+      // Check if the response indicates an error
+      if (response.code !== 200 || !response.data || !response.data.verses || response.data.verses.length === 0) {
+        throw new Error(`Failed to load surah details: ${response.message}`);
+      }
+      
       setSelectedSurah(response.data);
       setError(null);
-      // Scroll to top when a new surah is loaded
       window.scrollTo(0, 0);
     } catch (err) {
       setError('Failed to load surah details. Please try again later.');

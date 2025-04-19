@@ -291,8 +291,8 @@ export const fetchSurah = async (surahNumber: number): Promise<QuranSurahRespons
     const surah = surahData.data;
     const mappedVerses = verses.map((ayah: any) => ({
       number: {
-        inQuran: ayah.id || ayah.nomor,
-        inSurah: ayah.nomor || ayah.number
+        inQuran: ayah.id || ayah.nomor || 0,
+        inSurah: ayah.nomor || ayah.number || 0
       },
       meta: {
         juz: ayah.juz || 0,
