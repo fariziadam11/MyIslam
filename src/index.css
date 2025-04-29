@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Scheherazade+New:wght@400;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -41,11 +42,6 @@
 .animate-gentle-fade-in {
   animation: gentle-fade-in 0.5s ease-out forwards;
 }
-
-/* src/index.css or src/styles/global.css - add or update as needed */
-
-/* Import Arabic font for Quran text */
-@import url('https://fonts.googleapis.com/css2?family=Scheherazade+New:wght@400;700&display=swap');
 
 /* Font for Arabic text */
 .font-arabic {

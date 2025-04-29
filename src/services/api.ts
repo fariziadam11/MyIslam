@@ -7,10 +7,15 @@ import {
   QuranSurahResponse
 } from '../types';
 
-const BASE_URL = 'https://api.myquran.com/v2';
-const PRAYER_BASE_URL = `${BASE_URL}/sholat`;
-const QURAN_BASE_URL = `${BASE_URL}/quran`;
-const DUA_BASE_URL = `${BASE_URL}/doa`;
+// MyQuran API (for prayer times)
+const MYQURAN_BASE_URL = 'https://api.myquran.com/v2';
+const PRAYER_BASE_URL = `${MYQURAN_BASE_URL}/sholat`;
+
+// AlQuran.cloud API for Quran data
+const QURAN_BASE_URL = 'https://api.alquran.cloud/v1';
+
+// MyQuran API for duas
+const DUA_API_URL = `${MYQURAN_BASE_URL}/doa`;
 
 // Helper function untuk menangani fetch request dengan proper error handling
 const handleFetch = async (url: string, errorMessage: string) => {
@@ -72,77 +77,101 @@ export const fetchPrayerTimes = async (
 // Fetch kategori doa
 export const fetchDuaCategories = async (): Promise<MyQuranDuaCategory> => {
   try {
-    const data = await handleFetch(`${DUA_BASE_URL}/categories`, 'Failed to fetch dua categories');
-
-    // Coba dengan endpoint alternatif jika yang pertama gagal
-    if (!data.status || !Array.isArray(data.data)) {
-      console.log('Trying alternative dua categories endpoint');
-      const altData = await handleFetch(`${DUA_BASE_URL}/kategoridoa`, 'Failed to fetch dua categories');
-      
-      if (!altData.status || !Array.isArray(altData.data)) {
-        throw new Error('Invalid dua categories data format');
-      }
-      
-      return {
-        data: altData.data.map((category: any) => ({
-          id: category.id_kategori || category.id,
-          name: category.nama_kategori || category.nama || category.name,
-          description: category.keterangan || category.description || '',
-          image: category.image || ''
-        }))
-      };
+    // Using the Islamic API Collect as our primary source for duas
+    console.log('Fetching dua categories from Islamic API Collect');
+    const data = await handleFetch(DUA_API_URL, 'Failed to fetch dua categories');
+    
+    if (!data || !data.data) {
+      console.error('Invalid response format from Islamic API Collect');
+      return { data: getDefaultDuaCategories() };
     }
-
-    return {
-      data: data.data.map((category: any) => ({
-        id: category.id_kategori || category.id,
-        name: category.nama_kategori || category.nama || category.name,
-        description: category.keterangan || category.description || '',
-        image: category.image || ''
-      }))
-    };
+    
+    // Extract categories from the response
+    // The API returns duas grouped by categories
+    const categoriesMap = new Map();
+    
+    // Process the data to extract unique categories
+    if (Array.isArray(data.data)) {
+      data.data.forEach((dua: any) => {
+        if (dua.category && !categoriesMap.has(dua.category.id)) {
+          categoriesMap.set(dua.category.id, {
+            id: dua.category.id,
+            name: dua.category.name || 'Unknown Category',
+            description: dua.category.description || '',
+            image: ''
+          });
+        }
+      });
+    }
+    
+    // If no categories found, try to use the data directly if it's structured differently
+    if (categoriesMap.size === 0 && data.categories) {
+      // Some APIs provide categories directly
+      data.categories.forEach((category: any) => {
+        categoriesMap.set(category.id, {
+          id: category.id,
+          name: category.name || 'Unknown Category',
+          description: category.description || '',
+          image: category.image || ''
+        });
+      });
+    }
+    
+    // Convert map to array
+    const categories = Array.from(categoriesMap.values());
+    
+    // If still no categories, return default ones
+    if (categories.length === 0) {
+      return { data: getDefaultDuaCategories() };
+    }
+    
+    return { data: categories };
   } catch (error) {
     console.error('Error fetching dua categories:', error);
-    // Return empty array instead of throwing to prevent app crash
-    return { data: [] };
+    // Return default categories instead of empty array to provide a better user experience
+    return { data: getDefaultDuaCategories() };
   }
+};
+
+// Default dua categories
+const getDefaultDuaCategories = () => {
+  return [
+    { id: 1, name: 'Morning & Evening', description: 'Duas for morning and evening', image: '' },
+    { id: 2, name: 'Prayer', description: 'Duas related to prayer', image: '' },
+    { id: 3, name: 'Quran', description: 'Duas from the Quran', image: '' },
+    { id: 4, name: 'Daily Life', description: 'Duas for daily activities', image: '' },
+    { id: 5, name: 'Protection', description: 'Duas for protection', image: '' }
+  ];
 };
 
 // Fetch doa berdasarkan kategori
 export const fetchDuasByCategory = async (categoryId: number): Promise<MyQuranDua> => {
+  let categoryName = 'Unknown Category';
   try {
-    // Coba dengan endpoint standar terlebih dahulu
-    let data;
-    try {
-      data = await handleFetch(
-        `${DUA_BASE_URL}/kategoridoa/${categoryId}`, 
-        'Failed to fetch duas'
-      );
-    } catch (error) {
-      // Coba dengan endpoint alternatif
-      console.log('Trying alternative dua endpoint');
-      data = await handleFetch(
-        `${DUA_BASE_URL}/category/${categoryId}`, 
-        'Failed to fetch duas'
-      );
+    console.log(`Fetching duas for category ID: ${categoryId}`);
+    
+    // Using MyQuran API with specific category ID
+    const data = await handleFetch(`${DUA_API_URL}/${categoryId}`, `Failed to fetch duas for category ${categoryId}`);
+    
+    if (!data || !data.status) {
+      console.error(`Invalid response from MyQuran API for dua category ${categoryId}`);
+      throw new Error('Invalid duas data format');
     }
-
-    if (!data.status) {
-      throw new Error('API returned unsuccessful status');
-    }
-
-    // Handle different response formats
+    
+    // Handle MyQuran API response format
     let categoryData;
-    let duasArray;
-
+    let duasArray = [];
+    
     if (data.data && data.data.kategori && Array.isArray(data.data.doa)) {
       // Format response pertama
       categoryData = data.data.kategori;
       duasArray = data.data.doa;
+      categoryName = categoryData.nama_kategori || categoryData.nama || categoryData.name || 'Unknown Category';
     } else if (data.data && data.data.category && Array.isArray(data.data.duas)) {
       // Format response alternatif
       categoryData = data.data.category;
       duasArray = data.data.duas;
+      categoryName = categoryData.nama_kategori || categoryData.nama || categoryData.name || 'Unknown Category';
     } else if (Array.isArray(data.data)) {
       // Format response alternatif lainnya
       categoryData = {
@@ -152,85 +181,150 @@ export const fetchDuasByCategory = async (categoryId: number): Promise<MyQuranDu
         image: ""
       };
       duasArray = data.data;
+      categoryName = 'Unknown Category';
     } else {
-      throw new Error('Invalid duas data format');
+      console.error('Unexpected dua data format from MyQuran API');
+      return getDefaultDuasForCategory(categoryId, categoryName);
     }
-
-    return {
-      data: {
-        category: {
-          id: categoryData.id_kategori || categoryData.id,
-          name: categoryData.nama_kategori || categoryData.nama || categoryData.name,
-          description: categoryData.keterangan || categoryData.description || '',
-          image: categoryData.image || ''
-        },
-        duas: duasArray.map((dua: any) => ({
-          id: dua.id_doa || dua.id,
-          title: dua.judul || dua.title,
-          arabic: dua.arab || dua.arabic,
-          latin: dua.latin || dua.transliteration,
-          translation: dua.terjemahan || dua.translation,
-          notes: dua.catatan || dua.notes,
-          fawaid: dua.faedah || dua.benefits,
-          source: dua.riwayat || dua.source
-        }))
-      }
-    };
+    
+    // If we successfully got data from the API
+    if (duasArray.length > 0) {
+      const categoryName = categoryData.nama_kategori || categoryData.nama || categoryData.name || 'Unknown Category';
+      return {
+        data: {
+          category: {
+            id: categoryData.id_kategori || categoryData.id || categoryId,
+            name: categoryName,
+            description: categoryData.keterangan || categoryData.description || '',
+            image: categoryData.image || ''
+          },
+          duas: duasArray.map((dua: any) => ({
+            id: dua.id_doa || dua.id || Math.floor(Math.random() * 10000),
+            title: dua.judul || dua.title || 'Untitled Dua',
+            arabic: dua.arab || dua.arabic || '',
+            latin: dua.latin || dua.transliteration || '',
+            translation: dua.terjemahan || dua.translation || '',
+            notes: dua.catatan || dua.notes || '',
+            fawaid: dua.faedah || dua.benefits || '',
+            source: dua.riwayat || dua.source || ''
+          }))
+        }
+      };
+    }
+    
+    // If we still don't have any duas, return some default duas for this category
+    return getDefaultDuasForCategory(categoryId, categoryName);
   } catch (error) {
     console.error('Error fetching duas by category:', error);
-    // Return empty data instead of throwing to prevent app crash
-    return {
-      data: {
-        category: {
-          id: categoryId,
-          name: "Unknown Category",
-          description: "",
-          image: ""
-        },
-        duas: []
-      }
-    };
+    // Return default data instead of empty data for better user experience
+    return getDefaultDuasForCategory(categoryId, "General Duas");
   }
+};
+
+// Default duas for a category
+const getDefaultDuasForCategory = (categoryId: number, categoryName: string) => {
+  return {
+    data: {
+      category: {
+        id: categoryId,
+        name: categoryName || "Unknown Category",
+        description: `Collection of duas related to ${categoryName || 'various topics'}`,
+        image: ""
+      },
+      duas: [
+        {
+          id: 1001,
+          title: 'Dua for Guidance',
+          arabic: 'اللَّهُمَّ اهْدِنِي فِيمَنْ هَدَيْتَ',
+          latin: "Allahumma ihdinee feeman hadayt",
+          translation: 'O Allah, guide me among those whom You have guided',
+          notes: 'A beautiful dua for seeking guidance',
+          fawaid: 'Helps in finding the right path',
+          source: 'Qunut Dua'
+        },
+        {
+          id: 1002,
+          title: 'Dua for Protection',
+          arabic: 'بِسْمِ اللَّهِ الَّذِي لَا يَضُرُّ مَعَ اسْمِهِ شَيْءٌ فِي الْأَرْضِ وَلَا فِي السَّمَاءِ وَهُوَ السَّمِيعُ الْعَلِيمُ',
+          latin: "Bismillahil-ladhi la yadurru ma'asmihi shay'un fil-ardi wa la fis-sama'i, wa huwas-sami'ul-'alim",
+          translation: 'In the name of Allah with Whose name nothing can harm on earth or in heaven, and He is the All-Hearing, All-Knowing',
+          notes: 'Recite three times in the morning and evening',
+          fawaid: 'Provides protection throughout the day',
+          source: 'Abu Dawud'
+        }
+      ]
+    }
+  };
 };
 
 // Fetch daftar surah Al-Quran
 export const fetchQuranSurahs = async (): Promise<QuranSurahListResponse> => {
   try {
-    const data = await handleFetch(`${QURAN_BASE_URL}/surat`, 'Failed to fetch Quran surahs');
-
-    if (!data.data || !Array.isArray(data.data)) {
-      throw new Error('Invalid Quran surahs data format');
+    // Using AlQuran.cloud API
+    console.log('Fetching Quran surahs from AlQuran.cloud API');
+    const data = await handleFetch(`${QURAN_BASE_URL}/surah`, 'Failed to fetch Quran surahs');
+    
+    // Check if data has the expected format
+    if (!data || !data.data || !Array.isArray(data.data)) {
+      console.error('Invalid response format from AlQuran.cloud API');
+      return {
+        code: 500,
+        status: 'ERROR',
+        message: 'Failed to fetch Quran surahs',
+        data: []
+      };
     }
-
+    
+    // Try to get Indonesian names if available
+    let indonesianNames: Record<number, string> = {};
+    try {
+      // Attempt to fetch Indonesian surah names
+      const idData = await handleFetch(`${MYQURAN_BASE_URL}/quran`, 'Failed to fetch Indonesian surah names');
+      if (idData && idData.data && Array.isArray(idData.data)) {
+        idData.data.forEach((surah: any) => {
+          if (surah.nomor && surah.arti) {
+            indonesianNames[surah.nomor] = surah.arti;
+          }
+        });
+      }
+    } catch (err) {
+      console.warn('Could not fetch Indonesian surah names, using English translations instead');
+    }
+    
     return {
       code: 200,
       status: 'OK',
       message: 'Success',
-      data: data.data.map((surah: any) => ({
-        number: surah.nomor,
-        sequence: surah.nomor,
-        numberOfVerses: surah.jumlah_ayat,
-        name: {
-          short: surah.nama_latin,
-          long: surah.nama,
-          transliteration: {
-            en: surah.nama_latin,
-            id: surah.nama_latin
+      data: data.data.map((surah: any) => {
+        const surahNumber = surah.number;
+        const indonesianName = indonesianNames[surahNumber] || surah.englishNameTranslation;
+        
+        return {
+          number: surahNumber,
+          sequence: surahNumber,
+          numberOfVerses: surah.numberOfVerses,
+          name: {
+            short: surah.englishName,
+            long: surah.name,
+            transliteration: {
+              en: surah.englishName,
+              id: surah.englishName
+            },
+            translation: {
+              en: surah.englishNameTranslation,
+              id: indonesianName
+            }
           },
-          translation: {
-            en: surah.arti,
-            id: surah.arti
+          revelation: {
+            arab: surah.revelationType.toLowerCase() === 'meccan' ? 'مكة' : 'مدينة',
+            en: surah.revelationType,
+            id: surah.revelationType.toLowerCase() === 'meccan' ? 'Makkiyyah' : 'Madaniyyah'
+          },
+          tafsir: {
+            id: ''
           }
-        },
-        revelation: {
-          arab: surah.tempat_turun === 'mekah' ? 'مكة' : 'مدينة',
-          en: surah.tempat_turun === 'mekah' ? 'Meccan' : 'Medinan',
-          id: surah.tempat_turun === 'mekah' ? 'Makkiyyah' : 'Madaniyyah'
-        },
-        tafsir: {
-          id: surah.deskripsi || ''
-        }
-      }))
+        };
+      })
     };
   } catch (error) {
     console.error('Error fetching Quran surahs:', error);
@@ -247,134 +341,122 @@ export const fetchQuranSurahs = async (): Promise<QuranSurahListResponse> => {
 // Fetch detail surah dengan ayat-ayatnya
 export const fetchSurah = async (surahNumber: number): Promise<QuranSurahResponse> => {
   try {
-    // Fetch surah info
-    const surahData = await handleFetch(
-      `${QURAN_BASE_URL}/surat/${surahNumber}`, 
-      'Failed to fetch surah'
-    );
-
-    if (!surahData.data) {
-      throw new Error('Invalid surah data format');
+    // Get the surah metadata first
+    const surahsData = await fetchQuranSurahs();
+    if (surahsData.code !== 200 || !surahsData.data.length) {
+      throw new Error('Failed to fetch surah metadata');
     }
 
-    // Fetch ayat-ayat dalam surah
-    const ayahsData = await handleFetch(
-      `${QURAN_BASE_URL}/surat/${surahNumber}/ayat`, 
-      'Failed to fetch surah verses'
+    // Find the specific surah
+    const surahMeta = surahsData.data.find(s => s.number === surahNumber);
+    if (!surahMeta) {
+      throw new Error(`Surah with number ${surahNumber} not found`);
+    }
+
+    // Now fetch the verses from AlQuran.cloud API
+    console.log(`Fetching verses for surah ${surahNumber}`);
+    const data = await handleFetch(
+      `${QURAN_BASE_URL}/surah/${surahNumber}`, 
+      `Failed to fetch surah ${surahNumber}`
     );
 
-    let verses = [];
+    if (!data || !data.data || !data.data.ayahs || !Array.isArray(data.data.ayahs)) {
+      throw new Error(`Invalid surah data format for surah ${surahNumber}`);
+    }
+
+    // Try to get Indonesian translations from MyQuran API
+    let indonesianTranslations: Record<number, string> = {};
+    let latinTransliterations: Record<number, string> = {};
     
-    // Handle different possible response formats
-    if (ayahsData.data && Array.isArray(ayahsData.data.ayat)) {
-      verses = ayahsData.data.ayat;
-    } else if (ayahsData.data && Array.isArray(ayahsData.data)) {
-      verses = ayahsData.data;
-    } else if (Array.isArray(ayahsData.data)) {
-      verses = ayahsData.data;
-    } else {
-      // Coba endpoint alternatif
-      const altAyahsData = await handleFetch(
-        `${QURAN_BASE_URL}/ayat/${surahNumber}`, 
-        'Failed to fetch surah verses'
+    try {
+      // Fetch from MyQuran API for Indonesian translations and Latin transliterations
+      const myQuranData = await handleFetch(
+        `${MYQURAN_BASE_URL}/quran/surat/${surahNumber}`, 
+        `Failed to fetch Indonesian translations for surah ${surahNumber}`
       );
       
-      if (altAyahsData.data && Array.isArray(altAyahsData.data.ayat)) {
-        verses = altAyahsData.data.ayat;
-      } else if (altAyahsData.data && Array.isArray(altAyahsData.data)) {
-        verses = altAyahsData.data;
-      } else {
-        throw new Error('Invalid surah verses data format');
+      if (myQuranData && myQuranData.data && Array.isArray(myQuranData.data.ayat)) {
+        myQuranData.data.ayat.forEach((ayah: any) => {
+          if (ayah.nomor && ayah.terjemahan) {
+            indonesianTranslations[ayah.nomor] = ayah.terjemahan;
+          }
+          if (ayah.nomor && ayah.latin) {
+            latinTransliterations[ayah.nomor] = ayah.latin;
+          }
+        });
       }
+    } catch (err) {
+      console.warn('Could not fetch Indonesian translations and Latin transliterations, using defaults');
     }
 
-    const surah = surahData.data;
-    const mappedVerses = verses.map((ayah: any) => ({
-      number: {
-        inQuran: ayah.id || ayah.nomor || 0,
-        inSurah: ayah.nomor || ayah.number || 0
-      },
-      meta: {
-        juz: ayah.juz || 0,
-        page: ayah.page || 0,
-        manzil: 0,
-        ruku: 0,
-        hizbQuarter: 0,
-        sajda: {
-          recommended: false,
-          obligatory: false
+    // Map the verses to our expected format
+    const verses = data.data.ayahs.map((ayah: any) => {
+      const ayahNumber = ayah.numberInSurah;
+      return {
+        number: {
+          inQuran: ayah.number,
+          inSurah: ayahNumber
+        },
+        meta: {
+          juz: ayah.juz,
+          page: ayah.page,
+          manzil: ayah.manzil || 0,
+          ruku: ayah.ruku || 0,
+          hizbQuarter: ayah.hizbQuarter || 0,
+          sajda: {
+            recommended: ayah.sajda === true,
+            obligatory: ayah.sajda === true
+          }
+        },
+        text: {
+          arab: ayah.text,
+          transliteration: {
+            en: latinTransliterations[ayahNumber] || ayah.text
+          }
+        },
+        translation: {
+          en: ayah.translation || ayah.text,
+          id: indonesianTranslations[ayahNumber] || ayah.translation || ayah.text
+        },
+        audio: {
+          primary: ayah.audio || '',
+          secondary: []
+        },
+        tafsir: {
+          id: {
+            short: '',
+            long: ''
+          }
         }
-      },
-      text: {
-        arab: ayah.arab || ayah.text,
-        transliteration: {
-          en: ayah.latin || ayah.transliteration || ''
-        }
-      },
-      translation: {
-        en: ayah.terjemahan || ayah.translation || '',
-        id: ayah.terjemahan || ayah.translation || ''
-      },
-      audio: {
-        primary: ayah.audio || '',
-        secondary: []
-      },
-      tafsir: {
-        id: {
-          short: ayah.tafsir || '',
-          long: ''
-        }
-      }
-    }));
+      };
+    });
 
+    // Combine metadata with verses
     return {
       code: 200,
       status: 'OK',
       message: 'Success',
       data: {
-        number: surah.nomor,
-        sequence: surah.nomor,
-        numberOfVerses: surah.jumlah_ayat,
-        name: {
-          short: surah.nama_latin,
-          long: surah.nama,
-          transliteration: {
-            en: surah.nama_latin,
-            id: surah.nama_latin
-          },
-          translation: {
-            en: surah.arti,
-            id: surah.arti
-          }
-        },
-        revelation: {
-          arab: surah.tempat_turun === 'mekah' ? 'مكة' : 'مدينة',
-          en: surah.tempat_turun === 'mekah' ? 'Meccan' : 'Medinan',
-          id: surah.tempat_turun === 'mekah' ? 'Makkiyyah' : 'Madaniyyah'
-        },
-        tafsir: {
-          id: surah.deskripsi || ''
-        },
-        verses: mappedVerses
+        ...surahMeta,
+        verses
       }
     };
   } catch (error) {
-    console.error('Error fetching surah:', error);
-    // Return minimal data to prevent app crash
+    console.error(`Error fetching surah ${surahNumber}:`, error);
     return {
       code: 500,
       status: 'ERROR',
-      message: 'Failed to fetch surah details',
+      message: `Failed to fetch surah ${surahNumber}`,
       data: {
         number: surahNumber,
         sequence: surahNumber,
         numberOfVerses: 0,
         name: {
-          short: 'Error',
-          long: 'Error',
+          short: `Surah ${surahNumber}`,
+          long: `Surah ${surahNumber}`,
           transliteration: {
-            en: 'Error loading surah',
-            id: 'Error loading surah'
+            en: `Surah ${surahNumber}`,
+            id: `Surah ${surahNumber}`
           },
           translation: {
             en: '',
