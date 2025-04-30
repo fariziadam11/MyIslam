@@ -1,10 +1,10 @@
 import {
   CitiesResponse,
   PrayerTimesResponse,
-  MyQuranDuaCategory,
-  MyQuranDua,
   QuranSurahListResponse,
-  QuranSurahResponse
+  QuranSurahResponse,
+  QuranJuzResponse,
+  QuranSearchResponse
 } from '../types';
 
 // MyQuran API (for prayer times)
@@ -13,9 +13,6 @@ const PRAYER_BASE_URL = `${MYQURAN_BASE_URL}/sholat`;
 
 // AlQuran.cloud API for Quran data
 const QURAN_BASE_URL = 'https://api.alquran.cloud/v1';
-
-// MyQuran API for duas
-const DUA_API_URL = `${MYQURAN_BASE_URL}/doa`;
 
 // Helper function untuk menangani fetch request dengan proper error handling
 const handleFetch = async (url: string, errorMessage: string) => {
@@ -71,190 +68,49 @@ export const fetchPrayerTimes = async (
   } catch (error) {
     console.error('Error fetching prayer times:', error);
     throw error;
-  }
-};
-
-// Fetch kategori doa
-export const fetchDuaCategories = async (): Promise<MyQuranDuaCategory> => {
-  try {
-    // Using the Islamic API Collect as our primary source for duas
-    console.log('Fetching dua categories from Islamic API Collect');
-    const data = await handleFetch(DUA_API_URL, 'Failed to fetch dua categories');
-    
-    if (!data || !data.data) {
-      console.error('Invalid response format from Islamic API Collect');
-      return { data: getDefaultDuaCategories() };
-    }
-    
-    // Extract categories from the response
-    // The API returns duas grouped by categories
-    const categoriesMap = new Map();
-    
-    // Process the data to extract unique categories
-    if (Array.isArray(data.data)) {
-      data.data.forEach((dua: any) => {
-        if (dua.category && !categoriesMap.has(dua.category.id)) {
-          categoriesMap.set(dua.category.id, {
-            id: dua.category.id,
-            name: dua.category.name || 'Unknown Category',
-            description: dua.category.description || '',
-            image: ''
-          });
-        }
-      });
-    }
-    
-    // If no categories found, try to use the data directly if it's structured differently
-    if (categoriesMap.size === 0 && data.categories) {
-      // Some APIs provide categories directly
-      data.categories.forEach((category: any) => {
-        categoriesMap.set(category.id, {
-          id: category.id,
-          name: category.name || 'Unknown Category',
-          description: category.description || '',
-          image: category.image || ''
-        });
-      });
-    }
-    
-    // Convert map to array
-    const categories = Array.from(categoriesMap.values());
-    
-    // If still no categories, return default ones
-    if (categories.length === 0) {
-      return { data: getDefaultDuaCategories() };
-    }
-    
-    return { data: categories };
-  } catch (error) {
-    console.error('Error fetching dua categories:', error);
-    // Return default categories instead of empty array to provide a better user experience
-    return { data: getDefaultDuaCategories() };
-  }
-};
-
-// Default dua categories
-const getDefaultDuaCategories = () => {
-  return [
-    { id: 1, name: 'Morning & Evening', description: 'Duas for morning and evening', image: '' },
-    { id: 2, name: 'Prayer', description: 'Duas related to prayer', image: '' },
-    { id: 3, name: 'Quran', description: 'Duas from the Quran', image: '' },
-    { id: 4, name: 'Daily Life', description: 'Duas for daily activities', image: '' },
-    { id: 5, name: 'Protection', description: 'Duas for protection', image: '' }
-  ];
-};
-
-// Fetch doa berdasarkan kategori
-export const fetchDuasByCategory = async (categoryId: number): Promise<MyQuranDua> => {
-  let categoryName = 'Unknown Category';
-  try {
-    console.log(`Fetching duas for category ID: ${categoryId}`);
-    
-    // Using MyQuran API with specific category ID
-    const data = await handleFetch(`${DUA_API_URL}/${categoryId}`, `Failed to fetch duas for category ${categoryId}`);
-    
-    if (!data || !data.status) {
-      console.error(`Invalid response from MyQuran API for dua category ${categoryId}`);
-      throw new Error('Invalid duas data format');
-    }
-    
-    // Handle MyQuran API response format
-    let categoryData;
-    let duasArray = [];
-    
-    if (data.data && data.data.kategori && Array.isArray(data.data.doa)) {
-      // Format response pertama
-      categoryData = data.data.kategori;
-      duasArray = data.data.doa;
-      categoryName = categoryData.nama_kategori || categoryData.nama || categoryData.name || 'Unknown Category';
-    } else if (data.data && data.data.category && Array.isArray(data.data.duas)) {
-      // Format response alternatif
-      categoryData = data.data.category;
-      duasArray = data.data.duas;
-      categoryName = categoryData.nama_kategori || categoryData.nama || categoryData.name || 'Unknown Category';
-    } else if (Array.isArray(data.data)) {
-      // Format response alternatif lainnya
-      categoryData = {
-        id_kategori: categoryId,
-        nama_kategori: "Unknown Category",
-        keterangan: "",
-        image: ""
-      };
-      duasArray = data.data;
-      categoryName = 'Unknown Category';
-    } else {
-      console.error('Unexpected dua data format from MyQuran API');
-      return getDefaultDuasForCategory(categoryId, categoryName);
-    }
-    
-    // If we successfully got data from the API
-    if (duasArray.length > 0) {
-      const categoryName = categoryData.nama_kategori || categoryData.nama || categoryData.name || 'Unknown Category';
-      return {
-        data: {
-          category: {
-            id: categoryData.id_kategori || categoryData.id || categoryId,
-            name: categoryName,
-            description: categoryData.keterangan || categoryData.description || '',
-            image: categoryData.image || ''
-          },
-          duas: duasArray.map((dua: any) => ({
-            id: dua.id_doa || dua.id || Math.floor(Math.random() * 10000),
-            title: dua.judul || dua.title || 'Untitled Dua',
-            arabic: dua.arab || dua.arabic || '',
-            latin: dua.latin || dua.transliteration || '',
-            translation: dua.terjemahan || dua.translation || '',
-            notes: dua.catatan || dua.notes || '',
-            fawaid: dua.faedah || dua.benefits || '',
-            source: dua.riwayat || dua.source || ''
-          }))
-        }
-      };
-    }
-    
-    // If we still don't have any duas, return some default duas for this category
-    return getDefaultDuasForCategory(categoryId, categoryName);
-  } catch (error) {
-    console.error('Error fetching duas by category:', error);
-    // Return default data instead of empty data for better user experience
-    return getDefaultDuasForCategory(categoryId, "General Duas");
-  }
-};
-
-// Default duas for a category
-const getDefaultDuasForCategory = (categoryId: number, categoryName: string) => {
-  return {
-    data: {
-      category: {
-        id: categoryId,
-        name: categoryName || "Unknown Category",
-        description: `Collection of duas related to ${categoryName || 'various topics'}`,
-        image: ""
-      },
-      duas: [
-        {
-          id: 1001,
-          title: 'Dua for Guidance',
-          arabic: 'اللَّهُمَّ اهْدِنِي فِيمَنْ هَدَيْتَ',
-          latin: "Allahumma ihdinee feeman hadayt",
-          translation: 'O Allah, guide me among those whom You have guided',
-          notes: 'A beautiful dua for seeking guidance',
-          fawaid: 'Helps in finding the right path',
-          source: 'Qunut Dua'
-        },
-        {
-          id: 1002,
-          title: 'Dua for Protection',
-          arabic: 'بِسْمِ اللَّهِ الَّذِي لَا يَضُرُّ مَعَ اسْمِهِ شَيْءٌ فِي الْأَرْضِ وَلَا فِي السَّمَاءِ وَهُوَ السَّمِيعُ الْعَلِيمُ',
-          latin: "Bismillahil-ladhi la yadurru ma'asmihi shay'un fil-ardi wa la fis-sama'i, wa huwas-sami'ul-'alim",
-          translation: 'In the name of Allah with Whose name nothing can harm on earth or in heaven, and He is the All-Hearing, All-Knowing',
-          notes: 'Recite three times in the morning and evening',
-          fawaid: 'Provides protection throughout the day',
-          source: 'Abu Dawud'
-        }
-      ]
-    }
   };
+};
+
+// Fetch available Quran editions
+export const fetchQuranEditions = async () => {
+  try {
+    const data = await handleFetch(`${QURAN_BASE_URL}/edition`, 'Failed to fetch Quran editions');
+    return data;
+  } catch (error) {
+    console.error('Error fetching Quran editions:', error);
+    throw error;
+  }
+};
+
+// Fetch Quran by juz number
+export const fetchQuranJuz = async (juzNumber: number, edition: string = 'quran-uthmani,en.asad,id.indonesian'): Promise<QuranJuzResponse> => {
+  try {
+    const data = await handleFetch(
+      `${QURAN_BASE_URL}/juz/${juzNumber}/editions/${edition}`,
+      `Failed to fetch Juz ${juzNumber}`
+    );
+    return data;
+  } catch (error) {
+    console.error(`Error fetching Juz ${juzNumber}:`, error);
+    throw error;
+  }
+};
+
+// Search the Quran
+export const searchQuran = async (query: string, edition: string = 'en.asad,id.indonesian'): Promise<QuranSearchResponse> => {
+  try {
+    // Encode the query for URL
+    const encodedQuery = encodeURIComponent(query);
+    
+    const data = await handleFetch(
+      `${QURAN_BASE_URL}/search/${encodedQuery}/all/${edition}`,
+      `Failed to search for "${query}" in the Quran`
+    );
+    return data;
+  } catch (error) {
+    console.error(`Error searching Quran for "${query}":`, error);
+    throw error;
+  }
 };
 
 // Fetch daftar surah Al-Quran

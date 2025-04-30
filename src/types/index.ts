@@ -30,66 +30,61 @@ export interface CitiesResponse {
   data: City[];
 }
 
-// DUA (Prayer/Supplication) types
-export interface DuaCategory {
-  id: number;
+// Enhanced Quran types for AlQuran.Cloud API
+export interface QuranEdition {
+  identifier: string;
+  language: string;
   name: string;
-  description: string;
-  image: string;
+  englishName: string;
+  format: string;
+  type: string;
+  direction?: string;
 }
 
-export interface Dua {
-  id: number;
-  title: string;
-  arabic: string;
-  latin: string;
-  translation: string;
-  notes?: string;
-  fawaid?: string;
-  source?: string;
+export interface QuranJuz {
+  number: number;
+  verses: QuranVerse[];
+  surahs: {
+    [key: string]: {
+      number: number;
+      name: string;
+      englishName: string;
+      englishNameTranslation: string;
+      numberOfAyahs: number;
+      revelationType: string;
+    }
+  };
 }
 
-export interface DuaCategoryResponse {
-  status: boolean;
-  data: {
-    id_kategori: number;
-    nama_kategori: string;
-    keterangan: string;
-    image: string;
+export interface QuranJuzResponse {
+  code: number;
+  status: string;
+  message: string;
+  data: QuranJuz;
+}
+
+export interface QuranSearchResult {
+  count: number;
+  matches: {
+    surah: {
+      number: number;
+      name: string;
+      englishName: string;
+      englishNameTranslation: string;
+      numberOfAyahs: number;
+      revelationType: string;
+    };
+    verse: QuranVerse;
+    text: string;
+    highlighted: string;
   }[];
 }
 
-export interface DuasByCategoryResponse {
-  status: boolean;
-  data: {
-    kategori: {
-      id_kategori: number;
-      nama_kategori: string;
-      keterangan: string;
-      image: string;
-    };
-    doa: {
-      id_doa: number;
-      judul: string;
-      arab: string;
-      latin: string;
-      terjemahan: string;
-      catatan?: string;
-      faedah?: string;
-      riwayat?: string;
-    }[];
-  };
-}
-
-export interface MyQuranDuaCategory {
-  data: DuaCategory[];
-}
-
-export interface MyQuranDua {
-  data: {
-    category: DuaCategory;
-    duas: Dua[];
-  };
+export interface QuranSearchResponse {
+  code: number;
+  status: string;
+  message: string;
+  data: QuranSearchResult;
 }
 
 // Quran types

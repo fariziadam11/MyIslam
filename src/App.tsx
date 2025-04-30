@@ -4,12 +4,11 @@ import Footer from './components/Footer';
 import CitySelector from './components/CitySelector';
 import PrayerTimesDisplay from './components/PrayerTimesDisplay';
 import QuranSection from './components/QuranSection';
-import DuaSection from './components/DuaSection';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { usePrayerTimes } from './hooks/usePrayerTimes';
 
 // Define tab options
-type TabOption = 'prayer' | 'quran' | 'dua';
+type TabOption = 'prayer' | 'quran' | 'quran-search';
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabOption>('prayer');
@@ -53,10 +52,8 @@ function App() {
         );
         
       case 'quran':
-        return <QuranSection />;
-        
-      case 'dua':
-        return <DuaSection />;
+      case 'quran-search':
+        return <QuranSection searchMode={activeTab === 'quran-search'} />;
         
       default:
         return null;
@@ -92,17 +89,6 @@ function App() {
                 }`}
               >
                 Al-Quran
-              </button>
-              
-              <button
-                onClick={() => setActiveTab('dua')}
-                className={`flex-1 py-3 px-4 text-center font-medium transition-colors border-b-2 ${
-                  activeTab === 'dua'
-                    ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                }`}
-              >
-                Doa-doa
               </button>
             </div>
           </div>
